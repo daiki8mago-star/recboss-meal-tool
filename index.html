@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Recboss 食事プラン作成ツール</title>
+<style>
+  :root{
+    --navy:#1a2942; --accent:#c8102e; --light:#eef1f5; --grey:#5b6472;
+    --line:#cdd4de; --paper:#ffffff; --ink:#16202e; --ok:#1f8a4c; --warn:#b8860b; --danger:#c8102e;
+    --app:#e9edf2;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:"Hiragino Kaku Gothic ProN","Hiragino Sans","Noto Sans JP","Yu Gothic",sans-serif;
+    background:var(--app); color:var(--ink); line-height:1.6;
+    -webkit-text-size-adjust:100%;
+  }
+  .wrap{max-width:1180px; margin:0 auto; padding:20px 16px 80px;}
+  .apphead{display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; margin-bottom:6px;}
+  .apphead h1{font-size:21px; color:var(--navy); margin:0; letter-spacing:.01em;}
+  .apphead .tag{font-size:12px; color:var(--grey);}
+  .lead{font-size:13px; color:var(--grey); margin:0 0 18px;}
+
+  .layout{display:grid; grid-template-columns:380px 1fr; gap:22px; align-items:start;}
+  @media(max-width:860px){ .layout{grid-template-columns:1fr;} }
+
+  /* ---- controls ---- */
+  .controls{background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:18px;}
+  .controls h2{font-size:13px; letter-spacing:.06em; color:var(--navy); margin:0 0 12px; text-transform:none;
+    border-left:4px solid var(--accent); padding-left:9px;}
+  .grp{margin-bottom:18px;}
+  .row{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .row3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;}
+  label{display:block; font-size:11px; color:var(--grey); margin:0 0 4px; font-weight:600;}
+  input,select{width:100%; padding:9px 10px; font-size:14px; border:1px solid var(--line);
+    border-radius:8px; background:#fbfcfd; color:var(--ink); font-family:inherit;}
+  input:focus,select:focus{outline:2px solid #aebfd6; border-color:#aebfd6;}
+  .seg{display:flex; border:1px solid var(--line); border-radius:8px; overflow:hidden;}
+  .seg button{flex:1; border:0; background:#fbfcfd; padding:9px 4px; font-size:13px; cursor:pointer;
+    color:var(--grey); font-family:inherit;}
+  .seg button.on{background:var(--navy); color:#fff; font-weight:700;}
+  .hint{font-size:11px; color:var(--grey); margin-top:5px;}
+
+  .printbtn{width:100%; margin-top:4px; background:var(--accent); color:#fff; border:0;
+    padding:13px; font-size:15px; font-weight:700; border-radius:10px; cursor:pointer; letter-spacing:.02em;}
+  .printbtn:hover{filter:brightness(1.07);}
+
+  /* ---- save panel ---- */
+  .savebox{background:#fbfcfd; border:1px solid var(--line); border-radius:10px; padding:12px; margin-bottom:18px;}
+  .savebtns{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px;}
+  .btn{border:0; border-radius:8px; padding:10px 6px; font-size:13px; font-weight:700; cursor:pointer;
+    font-family:inherit;}
+  .btn.primary{background:var(--navy); color:#fff;}
+  .btn.ghost{background:#fff; color:var(--navy); border:1px solid var(--line);}
+  .btn.danger{background:#fff; color:var(--danger); border:1px solid #eeb9c2;}
+  .btn:hover{filter:brightness(1.05);}
+  .savelist{margin-top:10px;}
+  .saverow{display:flex; align-items:center; gap:6px; padding:6px 4px; border-top:1px solid var(--line);
+    font-size:13px;}
+  .saverow:first-child{border-top:0;}
+  .saverow .nm{flex:1; cursor:pointer; color:var(--navy); font-weight:600;}
+  .saverow .nm:hover{text-decoration:underline;}
+  .saverow .dt{font-size:10.5px; color:var(--grey);}
+  .saverow .x{border:0; background:transparent; color:var(--danger); cursor:pointer; font-size:15px;
+    line-height:1; padding:2px 6px;}
+  .saveempty{font-size:12px; color:var(--grey); padding:6px 2px;}
+  .savemsg{font-size:11.5px; margin-top:8px; min-height:14px;}
+  .savemsg.ok{color:var(--ok);} .savemsg.warn{color:var(--warn);}
+
+  /* ---- live diagnostics ---- */
+  .diag{margin:0 0 16px; border-radius:10px; padding:12px 14px; font-size:13px; border:1px solid;}
+  .diag.ok{background:#eaf6ee; border-color:#bfe3cb; color:#16602f;}
+  .diag.warn{background:#fbf4e0; border-color:#ecd9a3; color:#7a5b08;}
+  .diag.danger{background:#fbe9ec; border-color:#eeb9c2; color:#8c0f24;}
+  .diag b{font-weight:700;}
+
+  /* ---- plan (this is what prints) ---- */
+  .plan{background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:26px 28px;}
+  .ph{font-size:23px; color:var(--navy); margin:0; font-weight:800;}
+  .psub{font-size:12.5px; color:var(--grey); margin:3px 0 0;}
+  .prule{height:2px; background:var(--accent); border:0; margin:12px 0 16px;}
+
+  .kpis{display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--line);
+    border:1px solid var(--line); border-radius:10px; overflow:hidden; margin-bottom:18px;}
+  .kpi{background:var(--light); padding:12px 6px; text-align:center;}
+  .kpi .v{font-size:19px; font-weight:800; color:var(--accent); line-height:1.15;}
+  .kpi .v small{font-size:11px; font-weight:700;}
+  .kpi .l{font-size:10.5px; color:var(--grey); margin-top:2px;}
+
+  .sect{font-size:14px; color:var(--navy); font-weight:800; margin:18px 0 8px;
+    border-left:4px solid var(--accent); padding-left:9px;}
+
+  table{width:100%; border-collapse:collapse; font-size:13px;}
+  thead th{background:var(--navy); color:#fff; font-weight:600; font-size:12px; padding:7px 6px; text-align:center;}
+  thead th.l{text-align:left; padding-left:10px;}
+  tbody td{border:1px solid var(--line); padding:7px 6px; text-align:center; vertical-align:middle;}
+  tbody td.l{text-align:left; padding-left:10px;}
+  tbody tr:nth-child(even){background:var(--light);}
+  tbody tr.total td{background:#dde3ec; color:var(--navy); font-weight:800;}
+  .mealfood{width:100%; border:1px dashed transparent; background:transparent; font-size:13px;
+    padding:3px 4px; border-radius:5px; font-family:inherit; color:var(--ink);}
+  .mealfood:hover,.mealfood:focus{border-color:var(--line); background:#fff; outline:none;}
+
+  .rules{margin:8px 0 0; padding:12px 14px 12px 12px; background:#fbfcfd; border:1px solid var(--line);
+    border-radius:10px; list-style:none;}
+  .rules li{font-size:12.5px; padding:4px 0 4px 18px; position:relative;}
+  .rules li::before{content:"●"; color:var(--accent); position:absolute; left:0; font-size:9px; top:8px;}
+  .rules b{font-weight:700;}
+
+  .foot{margin-top:16px; padding-top:10px; border-top:1px solid var(--line); font-size:11px; color:var(--grey);}
+  .editnote{font-size:11px; color:var(--grey); margin:6px 0 0;}
+
+  /* ---- print ---- */
+  @media print{
+    @page{margin:12mm;}
+    body{background:#fff;}
+    .wrap{max-width:none; padding:0;}
+    .apphead,.lead,.controls,.diag,.editnote{display:none !important;}
+    .layout{display:block;}
+    .plan{border:0; border-radius:0; padding:0;}
+    .mealfood{border-color:transparent !important; background:transparent !important;}
+    .kpis,.plan{break-inside:avoid;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="apphead">
+    <h1>食事プラン作成ツール</h1>
+    <span class="tag">Recboss GYM ｜ コーチ用 ／ 数値を入れると自動計算 → 保存 → PDF保存</span>
+  </div>
+  <p class="lead">クライアント情報を入れるだけで、代謝計算・摂取カロリー・PFC・3食/2食レイアウトを自動生成します。食事内容の欄は直接書き換え可能。<b>クライアントを名前で保存</b>すれば、後から呼び出して続きを編集できます。完成したら「印刷 / PDF保存」を押してください。</p>
+
+  <div class="layout">
+    <!-- CONTROLS -->
+    <div class="controls">
+      <h2>クライアント情報</h2>
+      <div class="grp">
+        <label>名前（保存名になります）</label>
+        <input id="name" type="text" placeholder="例）山田 太郎 様" />
+      </div>
+
+      <div class="grp">
+        <label>性別</label>
+        <div class="seg" id="sexSeg">
+          <button data-sex="male" class="on">男性</button>
+          <button data-sex="female">女性</button>
+        </div>
+      </div>
+
+      <div class="grp row3">
+        <div><label>身長(cm)</label><input id="height" type="number" value="164" /></div>
+        <div><label>年齢</label><input id="age" type="number" value="20" /></div>
+        <div><label>活動量</label>
+          <select id="act">
+            <option value="1.3">ほぼ運動なし</option>
+            <option value="1.45" selected>週3前後</option>
+            <option value="1.6">週4-5</option>
+            <option value="1.725">毎日ハード</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grp row3">
+        <div><label>現体重(kg)</label><input id="cur" type="number" step="0.1" value="63.5" /></div>
+        <div><label>目標(kg)</label><input id="tgt" type="number" step="0.1" value="58" /></div>
+        <div><label>期限日</label><input id="deadline" type="date" /></div>
+      </div>
+
+      <h2 style="margin-top:6px;">設計パラメータ</h2>
+      <div class="grp row">
+        <div><label>タンパク質(g/kg)</label><input id="pPerKg" type="number" step="0.1" value="2.0" /></div>
+        <div><label>脂質(g/kg)</label><input id="fPerKg" type="number" step="0.1" value="0.7" /></div>
+      </div>
+      <div class="grp">
+        <label>食事回数</label>
+        <div class="seg" id="mealSeg">
+          <button data-meals="3" class="on">3食</button>
+          <button data-meals="2">2食（16:8）</button>
+        </div>
+        <p class="hint">タンパク質は現体重基準。脂質は0.6g/kgを下限に。</p>
+      </div>
+
+      <!-- SAVE PANEL -->
+      <h2 style="margin-top:6px;">クライアント保存</h2>
+      <div class="savebox">
+        <div class="hint" style="margin-top:0;">上の「名前」でこの端末（ブラウザ）に保存します。同じ名前で保存すると上書きされます。</div>
+        <div class="savebtns">
+          <button class="btn primary" id="btnSave">この内容を保存</button>
+          <button class="btn ghost" id="btnNew">新規（入力クリア）</button>
+        </div>
+        <div class="savemsg" id="saveMsg"></div>
+        <div class="savelist" id="saveList"></div>
+        <div class="savebtns" style="margin-top:10px;">
+          <button class="btn ghost" id="btnExport">バックアップ書出し</button>
+          <button class="btn ghost" id="btnImport">読込（復元）</button>
+        </div>
+        <input type="file" id="importFile" accept="application/json" style="display:none;" />
+      </div>
+
+      <button class="printbtn" onclick="window.print()">印刷 / PDF保存</button>
+    </div>
+
+    <!-- PREVIEW + PLAN -->
+    <div>
+      <div id="diag" class="diag ok"></div>
+      <div class="plan" id="plan">
+        <h2 class="ph" id="planTitle">減量サポート｜食事プラン</h2>
+        <p class="psub" id="planSub"></p>
+        <hr class="prule" />
+        <div class="kpis">
+          <div class="kpi"><div class="v" id="kCal">–</div><div class="l">1日の摂取目安</div></div>
+          <div class="kpi"><div class="v" id="kP">–</div><div class="l">タンパク質</div></div>
+          <div class="kpi"><div class="v" id="kF">–</div><div class="l">脂質</div></div>
+          <div class="kpi"><div class="v" id="kC">–</div><div class="l">炭水化物</div></div>
+        </div>
+
+        <div class="sect" id="mealHead">3食レイアウト</div>
+        <table>
+          <thead><tr>
+            <th style="width:42px;">食事</th><th class="l">メニュー（書き換え可）</th>
+            <th style="width:58px;">kcal</th><th style="width:42px;">P</th>
+            <th style="width:42px;">F</th><th style="width:42px;">C</th>
+          </tr></thead>
+          <tbody id="mealBody"></tbody>
+        </table>
+        <p class="editnote">※ メニュー欄はタップで編集できます。編集した内容は保存時に一緒に記録されます（「新規」または数値変更で自動計算に戻したいときは下の「自動計算に戻す」）。</p>
+        <p class="editnote"><a href="#" id="resetMeals" style="color:var(--accent);">↻ メニューを自動計算に戻す</a></p>
+
+        <div class="sect">運用ルール（崩れないための鉄則）</div>
+        <ul class="rules">
+          <li><b>タンパク質は死守。</b>赤字が大きいほど、緩めると筋肉から削れる。最優先。</li>
+          <li><b>脂質は下限を守る。</b>ホルモン維持のため減らしすぎ禁止。</li>
+          <li><b>体重は毎朝測って週平均で判断。</b>日々の上下は水分。</li>
+          <li><b>停滞してもカロリーは下げない。</b>歩数を1日1,000〜1,500歩足して対応。</li>
+          <li><b>序盤に多く落ちても摂取を減らさない。</b>水分が抜けているだけ。</li>
+        </ul>
+
+        <div class="foot">Recboss GYM ｜ 茨城・龍ケ崎 24時間ジム ／ 本資料は減量サポート用の食事プラン目安です。体調に不安がある場合は無理せず調整してください。</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var sex="male", meals=3;
+  var mealOverrides={};            // slot -> 手入力したメニュー文字列
+  var STORE_KEY="recboss_meal_clients_v1";
+  var LAST_KEY="recboss_meal_last_v1";
+  var FIELDS=['name','height','age','act','cur','tgt','deadline','pPerKg','fPerKg'];
+
+  function $(id){return document.getElementById(id);}
+  function num(id){return parseFloat($(id).value)||0;}
+  function round(n,s){s=s||1;return Math.round(n/s)*s;}
+
+  // default deadline = ~7 weeks out
+  (function(){
+    var d=new Date(); d.setDate(d.getDate()+49);
+    $('deadline').value=d.toISOString().slice(0,10);
+  })();
+
+  /* ---------- segmented controls ---------- */
+  document.querySelectorAll('#sexSeg button').forEach(function(b){
+    b.onclick=function(){sex=b.dataset.sex;
+      document.querySelectorAll('#sexSeg button').forEach(function(x){x.classList.remove('on');});
+      b.classList.add('on'); autoSaveLast(); render();};
+  });
+  document.querySelectorAll('#mealSeg button').forEach(function(b){
+    b.onclick=function(){meals=parseInt(b.dataset.meals);
+      document.querySelectorAll('#mealSeg button').forEach(function(x){x.classList.remove('on');});
+      b.classList.add('on'); autoSaveLast(); render();};
+  });
+  FIELDS.forEach(function(id){
+    $(id).addEventListener('input',function(){autoSaveLast();render();});
+    $(id).addEventListener('change',function(){autoSaveLast();render();});
+  });
+
+  function weeksLeft(){
+    var dl=new Date($('deadline').value); if(isNaN(dl)) return 0;
+    var today=new Date(); today.setHours(0,0,0,0);
+    return Math.max((dl-today)/(1000*60*60*24*7),0.1);
+  }
+
+  /* ---------- food suggestion ---------- */
+  function buildFood(slot, mp, mc, mf){
+    var prot = slot==='夜' ? '鮭 or 赤身肉' : (slot==='昼' ? '鶏むね' : 'プロテイン＋卵');
+    var pieces=[];
+    if(slot==='朝'){
+      var scoops = Math.max(1, Math.round(mp/40));
+      var eggs = Math.max(1, Math.round((mp - scoops*22)/6));
+      var oats = round(mc*1.6, 5);
+      pieces.push('プロテイン'+scoops+'杯', '卵'+eggs+'個', 'オートミール'+oats+'g');
+    } else {
+      var meat = round(mp/0.22, 10);
+      var rice = round((mc*0.7)/0.37, 10);
+      pieces.push(prot+meat+'g', '白米'+rice+'g', '野菜・汁物');
+    }
+    return pieces.join(' ＋ ');
+  }
+
+  /* ---------- main render ---------- */
+  function render(){
+    var h=num('height'), a=num('age'), cur=num('cur'), tgt=num('tgt');
+    var act=parseFloat($('act').value)||1.45;
+    var pPerKg=num('pPerKg'), fPerKg=num('fPerKg');
+    var wk=weeksLeft(), lose=Math.max(cur-tgt,0);
+
+    var bmr = 10*cur + 6.25*h - 5*a + (sex==='male'?5:-161);
+    var tdee = bmr*act;
+    var dailyDeficit = wk>0 ? (lose*7700)/(wk*7) : 0;
+    var intake = tdee - dailyDeficit;
+
+    var P = cur*pPerKg;
+    var F = Math.max(cur*fPerKg, cur*0.6);
+    var C = (intake - P*4 - F*9)/4;
+
+    var pacePct = (cur>0&&wk>0) ? (lose/wk)/cur*100 : 0;
+    var floor = sex==='male'?1500:1200;
+
+    var d=$('diag'), cls='ok', msg='';
+    var paceKg=(wk>0?lose/wk:0);
+    if(lose<=0){ cls='warn'; msg='<b>目標体重が現体重以上です。</b>減量プランとして成立していません。数値を確認してください。'; }
+    else if(intake < floor){ cls='danger';
+      msg='<b>摂取が安全下限（'+floor+'kcal）を下回ります（算出 '+Math.round(intake)+'kcal）。</b>期限を延ばすか目標を緩めて、ペースを落とすこと。このまま詰めると筋肉が落ちてリバウンドします。'; }
+    else if(pacePct>1.5){ cls='danger';
+      msg='<b>ペースが速すぎます（週'+paceKg.toFixed(2)+'kg ＝ '+pacePct.toFixed(1)+'%/週）。</b>1%/週以内が安全圏。期限を後ろ倒しに。'; }
+    else if(pacePct>1.0){ cls='warn';
+      msg='<b>ちょい攻めペース（週'+paceKg.toFixed(2)+'kg ＝ '+pacePct.toFixed(1)+'%/週）。</b>可能だが安全上限ぎりぎり。タンパク質を死守し、後半の停滞でカロリーを下げないこと。'; }
+    else { cls='ok';
+      msg='<b>持続可能ペース（週'+paceKg.toFixed(2)+'kg ＝ '+pacePct.toFixed(1)+'%/週）。</b>理想的。あと約'+wk.toFixed(1)+'週で'+lose.toFixed(1)+'kg減の計画です。'; }
+    d.className='diag '+cls; d.innerHTML=msg;
+
+    var nm=$('name').value.trim();
+    $('planTitle').textContent = '減量サポート｜食事プラン';
+    var dl=$('deadline').value||'';
+    $('planSub').textContent =
+      (nm?nm+'　／　':'') + 'Recboss GYM パーソナルサポート　／　目標：'+
+      (cur||'–')+'kg → '+(tgt||'–')+'kg'+(dl?'（〜'+dl+'）':'');
+
+    $('kCal').innerHTML = (intake>0?Math.round(intake/5)*5:'–')+'<small>kcal</small>';
+    $('kP').textContent = 'P '+Math.round(P)+'g';
+    $('kF').textContent = 'F '+Math.round(F)+'g';
+    $('kC').textContent = 'C '+Math.max(Math.round(C),0)+'g';
+
+    $('mealHead').textContent = meals===3 ? '3食レイアウト' : '2食レイアウト（16:8 ／ 昼＋夜）';
+    var split = meals===3 ? [['朝',0.28],['昼',0.36],['夜',0.36]]
+                          : [['昼',0.44],['夜',0.56]];
+    var tb=$('mealBody'); tb.innerHTML='';
+    var sumP=0,sumF=0,sumC=0,sumK=0;
+    split.forEach(function(s){
+      var slot=s[0], r=s[1];
+      var mp=P*r, mf=F*r, mc=Math.max(C*r,0);
+      var mk=mp*4+mf*9+mc*4;
+      sumP+=mp; sumF+=mf; sumC+=mc; sumK+=mk;
+      var foodVal = (mealOverrides[slot]!=null) ? mealOverrides[slot] : buildFood(slot,mp,mc,mf);
+      var tr=document.createElement('tr');
+      var td0=document.createElement('td'); td0.textContent=slot;
+      var td1=document.createElement('td'); td1.className='l';
+      var inp=document.createElement('input'); inp.className='mealfood'; inp.value=foodVal;
+      inp.dataset.slot=slot;
+      inp.addEventListener('input',function(){ mealOverrides[this.dataset.slot]=this.value; autoSaveLast(); });
+      td1.appendChild(inp);
+      var td2=document.createElement('td'); td2.textContent='約'+Math.round(mk/5)*5;
+      var td3=document.createElement('td'); td3.textContent=Math.round(mp)+'g';
+      var td4=document.createElement('td'); td4.textContent=Math.round(mf)+'g';
+      var td5=document.createElement('td'); td5.textContent=Math.round(mc)+'g';
+      tr.appendChild(td0);tr.appendChild(td1);tr.appendChild(td2);tr.appendChild(td3);tr.appendChild(td4);tr.appendChild(td5);
+      tb.appendChild(tr);
+    });
+    var tr=document.createElement('tr'); tr.className='total';
+    tr.innerHTML='<td>合計</td><td class="l"></td><td>約'+Math.round(sumK/5)*5+'</td>'+
+      '<td>'+Math.round(sumP)+'g</td><td>'+Math.round(sumF)+'g</td><td>'+Math.round(sumC)+'g</td>';
+    tb.appendChild(tr);
+  }
+
+  /* ---------- state <-> form ---------- */
+  function getState(){
+    var o={sex:sex, meals:meals, mealOverrides:Object.assign({},mealOverrides)};
+    FIELDS.forEach(function(id){ o[id]=$(id).value; });
+    return o;
+  }
+  function setState(o){
+    if(!o) return;
+    FIELDS.forEach(function(id){ if(o[id]!=null) $(id).value=o[id]; });
+    sex = o.sex || 'male';
+    meals = o.meals || 3;
+    mealOverrides = o.mealOverrides ? Object.assign({},o.mealOverrides) : {};
+    document.querySelectorAll('#sexSeg button').forEach(function(x){
+      x.classList.toggle('on', x.dataset.sex===sex); });
+    document.querySelectorAll('#mealSeg button').forEach(function(x){
+      x.classList.toggle('on', parseInt(x.dataset.meals)===meals); });
+    render();
+  }
+
+  /* ---------- storage ---------- */
+  function loadClients(){
+    try{ return JSON.parse(localStorage.getItem(STORE_KEY))||{}; }catch(e){ return {}; }
+  }
+  function saveClients(obj){
+    try{ localStorage.setItem(STORE_KEY, JSON.stringify(obj)); return true; }
+    catch(e){ return false; }
+  }
+  function autoSaveLast(){
+    try{ localStorage.setItem(LAST_KEY, JSON.stringify(getState())); }catch(e){}
+  }
+  function flash(text, kind){
+    var m=$('saveMsg'); m.className='savemsg '+(kind||'ok'); m.textContent=text;
+    clearTimeout(flash._t); flash._t=setTimeout(function(){ m.textContent=''; }, 3500);
+  }
+
+  function renderList(){
+    var clients=loadClients();
+    var names=Object.keys(clients).sort(function(a,b){
+      return (clients[b].savedAt||0)-(clients[a].savedAt||0); });
+    var box=$('saveList');
+    if(names.length===0){ box.innerHTML='<div class="saveempty">保存されたクライアントはまだありません。</div>'; return; }
+    box.innerHTML='';
+    names.forEach(function(nm){
+      var c=clients[nm];
+      var row=document.createElement('div'); row.className='saverow';
+      var name=document.createElement('span'); name.className='nm'; name.textContent=nm;
+      name.title='読み込む'; name.onclick=function(){ loadClient(nm); };
+      var dt=document.createElement('span'); dt.className='dt';
+      dt.textContent = c.savedAt ? new Date(c.savedAt).toLocaleDateString('ja-JP',{month:'numeric',day:'numeric'}) : '';
+      var x=document.createElement('button'); x.className='x'; x.textContent='×'; x.title='削除';
+      x.onclick=function(){ delClient(nm); };
+      row.appendChild(name); row.appendChild(dt); row.appendChild(x);
+      box.appendChild(row);
+    });
+  }
+
+  function saveClient(){
+    var nm=$('name').value.trim();
+    if(!nm){ flash('先に「名前」を入力してください。','warn'); $('name').focus(); return; }
+    var clients=loadClients();
+    var existed=!!clients[nm];
+    var st=getState(); st.savedAt=Date.now();
+    clients[nm]=st;
+    if(saveClients(clients)){ flash((existed?'上書き保存しました：':'保存しました：')+nm,'ok'); renderList(); }
+    else{ flash('保存に失敗しました（容量制限の可能性）。','warn'); }
+  }
+  function loadClient(nm){
+    var clients=loadClients(); var c=clients[nm];
+    if(!c){ flash('読み込めませんでした。','warn'); return; }
+    setState(c); autoSaveLast(); flash('読み込みました：'+nm,'ok');
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+  function delClient(nm){
+    if(!confirm('「'+nm+'」を削除しますか？')) return;
+    var clients=loadClients(); delete clients[nm]; saveClients(clients);
+    flash('削除しました：'+nm,'ok'); renderList();
+  }
+  function newClient(){
+    if(!confirm('入力内容をクリアして新規作成しますか？（保存済みデータは消えません）')) return;
+    $('name').value='';
+    $('height').value='164'; $('age').value='20'; $('act').value='1.45';
+    $('cur').value='63.5'; $('tgt').value='58';
+    var d=new Date(); d.setDate(d.getDate()+49); $('deadline').value=d.toISOString().slice(0,10);
+    $('pPerKg').value='2.0'; $('fPerKg').value='0.7';
+    sex='male'; meals=3; mealOverrides={};
+    document.querySelectorAll('#sexSeg button').forEach(function(x){ x.classList.toggle('on', x.dataset.sex==='male'); });
+    document.querySelectorAll('#mealSeg button').forEach(function(x){ x.classList.toggle('on', x.dataset.meals==='3'); });
+    autoSaveLast(); render(); flash('新規作成しました。','ok'); $('name').focus();
+  }
+
+  /* ---------- backup export / import ---------- */
+  function exportBackup(){
+    var data=JSON.stringify(loadClients(),null,2);
+    var blob=new Blob([data],{type:'application/json'});
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a');
+    a.href=url; a.download='recboss-clients-'+new Date().toISOString().slice(0,10)+'.json';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    flash('バックアップを書き出しました。','ok');
+  }
+  function importBackup(file){
+    var rd=new FileReader();
+    rd.onload=function(){
+      try{
+        var inc=JSON.parse(rd.result);
+        if(typeof inc!=='object'||inc===null) throw 0;
+        var clients=loadClients(); var n=0;
+        Object.keys(inc).forEach(function(k){ clients[k]=inc[k]; n++; });
+        saveClients(clients); renderList(); flash(n+'件を読み込みました。','ok');
+      }catch(e){ flash('ファイルを読み込めませんでした。','warn'); }
+    };
+    rd.readAsText(file);
+  }
+
+  /* ---------- wire buttons ---------- */
+  $('btnSave').onclick=saveClient;
+  $('btnNew').onclick=newClient;
+  $('btnExport').onclick=exportBackup;
+  $('btnImport').onclick=function(){ $('importFile').click(); };
+  $('importFile').onchange=function(){ if(this.files[0]) importBackup(this.files[0]); this.value=''; };
+  $('resetMeals').onclick=function(e){ e.preventDefault(); mealOverrides={}; autoSaveLast(); render(); flash('メニューを自動計算に戻しました。','ok'); };
+
+  /* ---------- boot: restore last session ---------- */
+  (function(){
+    try{
+      var last=JSON.parse(localStorage.getItem(LAST_KEY));
+      if(last) setState(last);
+    }catch(e){}
+  })();
+  renderList();
+  render();
+})();
+</script>
+</body>
+</html>
