@@ -449,36 +449,77 @@
                  : [['昼',0.44],['夜',0.56]];
   }
 
-  /* ---------- main render ---------- */
-  function render(){
+  /* ---------- 目標値の算出（render と recalcMeals で共有） ---------- */
+  function planTargets(){
     var h=num('height'), a=num('age'), cur=num('cur'), tgt=num('tgt');
     var act=parseFloat($('act').value)||1.45;
     var pPerKg=num('pPerKg'), fPerKg=num('fPerKg');
     var wk=weeksLeft(), lose=Math.max(cur-tgt,0);
-
     var bmr = 10*cur + 6.25*h - 5*a + (sex==='male'?5:-161);
     var tdee = bmr*act;
     var dailyDeficit = wk>0 ? (lose*7700)/(wk*7) : 0;
     var intake = tdee - dailyDeficit;
+    var P = cur*pPerKg, F = Math.max(cur*fPerKg, cur*0.6), C = (intake - P*4 - F*9)/4;
+    return { cur:cur, tgt:tgt, wk:wk, lose:lose, intake:intake, P:P, F:F, C:C,
+             pacePct:(cur>0&&wk>0)?(lose/wk)/cur*100:0, paceKg:(wk>0?lose/wk:0),
+             floor: sex==='male'?1500:1200 };
+  }
 
-    var P = cur*pPerKg;
-    var F = Math.max(cur*fPerKg, cur*0.6);
-    var C = (intake - P*4 - F*9)/4;
+  // 合計行＋「目標との差」だけを書き換える（入力欄は触らない＝フォーカス維持）
+  function paintTotals(sumP,sumF,sumC,sumK){
+    var T=planTargets();
+    var rows=$('mealBody').children, totalRow=null;
+    for(var i=0;i<rows.length;i++){ if((rows[i].className||'').indexOf('total')>=0) totalRow=rows[i]; }
+    if(totalRow){
+      totalRow.innerHTML='<td>合計</td><td class="l">（メニューの実際）</td><td>約'+Math.round(sumK/5)*5+'</td>'+
+        '<td>'+Math.round(sumP)+'g</td><td>'+Math.round(sumF)+'g</td><td>'+Math.round(sumC)+'g</td>';
+    }
+    var tK=T.intake>0?T.intake:0;
+    function diffTxt(label,actv,tgtv,unit){ var dv=Math.round(actv-tgtv); var sign=dv>0?'+':'';
+      return label+' '+Math.round(actv)+unit+' / 目標'+Math.round(tgtv)+unit+'（'+sign+dv+unit+'）'; }
+    var off = Math.abs(sumK-tK) > tK*0.1;
+    var md=$('mealDiff'); md.className='mealdiff '+(off?'warn':'ok');
+    md.innerHTML='<b>合計と目標の差</b>　'+
+      diffTxt('kcal',sumK,tK,'')+' ｜ '+diffTxt('P',sumP,T.P,'g')+' ｜ '+
+      diffTxt('F',sumF,T.F,'g')+' ｜ '+diffTxt('C',sumC,Math.max(T.C,0),'g')+
+      (off?'<br>※ 目標から離れています。各メニューの分量を打ち替えて合計を目標に近づけてください。':'');
+  }
 
-    var pacePct = (cur>0&&wk>0) ? (lose/wk)/cur*100 : 0;
-    var floor = sex==='male'?1500:1200;
+  // キー入力ごとに呼ぶ軽量更新：各行の数値と合計だけ再計算（行・入力欄は再生成しない）
+  function recalcMeals(){
+    var rows=$('mealBody').children, sumP=0,sumF=0,sumC=0,sumK=0;
+    for(var i=0;i<rows.length;i++){
+      var row=rows[i]; if((row.className||'').indexOf('total')>=0) continue;
+      var inp=row.querySelector('.mealfood'); if(!inp) continue;
+      var a=parseMeal(inp.value);
+      sumP+=a.p; sumF+=a.f; sumC+=a.c; sumK+=a.k;
+      var td1=row.children[1], note=td1.querySelector('.foodnote');
+      if(a.unknown.length){
+        if(!note){ note=document.createElement('span'); note.className='foodnote'; td1.appendChild(note); }
+        note.textContent='未登録のため未計算: '+a.unknown.join('、');
+      } else if(note){ td1.removeChild(note); }
+      row.children[2].textContent='約'+Math.round(a.k/5)*5;
+      row.children[3].textContent=Math.round(a.p)+'g';
+      row.children[4].textContent=Math.round(a.f)+'g';
+      row.children[5].textContent=Math.round(a.c)+'g';
+    }
+    paintTotals(sumP,sumF,sumC,sumK);
+  }
+
+  /* ---------- main render（フル再描画：項目変更・読込・食数/間食切替時のみ） ---------- */
+  function render(){
+    var T=planTargets();
 
     var d=$('diag'), cls='ok', msg='';
-    var paceKg=(wk>0?lose/wk:0);
-    if(lose<=0){ cls='warn'; msg='<b>目標体重が現体重以上です。</b>減量プランとして成立していません。数値を確認してください。'; }
-    else if(intake < floor){ cls='danger';
-      msg='<b>摂取が安全下限（'+floor+'kcal）を下回ります（算出 '+Math.round(intake)+'kcal）。</b>期限を延ばすか目標を緩めて、ペースを落とすこと。このまま詰めると筋肉が落ちてリバウンドします。'; }
-    else if(pacePct>1.5){ cls='danger';
-      msg='<b>ペースが速すぎます（週'+paceKg.toFixed(2)+'kg ＝ '+pacePct.toFixed(1)+'%/週）。</b>1%/週以内が安全圏。期限を後ろ倒しに。'; }
-    else if(pacePct>1.0){ cls='warn';
-      msg='<b>ちょい攻めペース（週'+paceKg.toFixed(2)+'kg ＝ '+pacePct.toFixed(1)+'%/週）。</b>可能だが安全上限ぎりぎり。タンパク質を死守し、後半の停滞でカロリーを下げないこと。'; }
+    if(T.lose<=0){ cls='warn'; msg='<b>目標体重が現体重以上です。</b>減量プランとして成立していません。数値を確認してください。'; }
+    else if(T.intake < T.floor){ cls='danger';
+      msg='<b>摂取が安全下限（'+T.floor+'kcal）を下回ります（算出 '+Math.round(T.intake)+'kcal）。</b>期限を延ばすか目標を緩めて、ペースを落とすこと。このまま詰めると筋肉が落ちてリバウンドします。'; }
+    else if(T.pacePct>1.5){ cls='danger';
+      msg='<b>ペースが速すぎます（週'+T.paceKg.toFixed(2)+'kg ＝ '+T.pacePct.toFixed(1)+'%/週）。</b>1%/週以内が安全圏。期限を後ろ倒しに。'; }
+    else if(T.pacePct>1.0){ cls='warn';
+      msg='<b>ちょい攻めペース（週'+T.paceKg.toFixed(2)+'kg ＝ '+T.pacePct.toFixed(1)+'%/週）。</b>可能だが安全上限ぎりぎり。タンパク質を死守し、後半の停滞でカロリーを下げないこと。'; }
     else { cls='ok';
-      msg='<b>持続可能ペース（週'+paceKg.toFixed(2)+'kg ＝ '+pacePct.toFixed(1)+'%/週）。</b>理想的。あと約'+wk.toFixed(1)+'週で'+lose.toFixed(1)+'kg減の計画です。'; }
+      msg='<b>持続可能ペース（週'+T.paceKg.toFixed(2)+'kg ＝ '+T.pacePct.toFixed(1)+'%/週）。</b>理想的。あと約'+T.wk.toFixed(1)+'週で'+T.lose.toFixed(1)+'kg減の計画です。'; }
     d.className='diag '+cls; d.innerHTML=msg;
 
     var nm=$('name').value.trim();
@@ -486,12 +527,12 @@
     var dl=$('deadline').value||'';
     $('planSub').textContent =
       (nm?nm+'　／　':'') + 'Recboss GYM パーソナルサポート　／　目標：'+
-      (cur||'–')+'kg → '+(tgt||'–')+'kg'+(dl?'（〜'+dl+'）':'');
+      (T.cur||'–')+'kg → '+(T.tgt||'–')+'kg'+(dl?'（〜'+dl+'）':'');
 
-    $('kCal').innerHTML = (intake>0?Math.round(intake/5)*5:'–')+'<small>kcal</small>';
-    $('kP').textContent = 'P '+Math.round(P)+'g';
-    $('kF').textContent = 'F '+Math.round(F)+'g';
-    $('kC').textContent = 'C '+Math.max(Math.round(C),0)+'g';
+    $('kCal').innerHTML = (T.intake>0?Math.round(T.intake/5)*5:'–')+'<small>kcal</small>';
+    $('kP').textContent = 'P '+Math.round(T.P)+'g';
+    $('kF').textContent = 'F '+Math.round(T.F)+'g';
+    $('kC').textContent = 'C '+Math.max(Math.round(T.C),0)+'g';
 
     $('mealHead').textContent = (meals===3 ? '3食レイアウト' : '2食レイアウト（16:8 ／ 昼＋夜）') + (snack?'＋間食':'');
     var split=mealSplit();
@@ -499,50 +540,32 @@
     var sumP=0,sumF=0,sumC=0,sumK=0;
     split.forEach(function(s){
       var slot=s[0], r=s[1];
-      var mp=P*r, mf=F*r, mc=Math.max(C*r,0);
+      var mp=T.P*r, mf=T.F*r, mc=Math.max(T.C*r,0);
       var foodVal = (mealOverrides[slot]!=null) ? mealOverrides[slot] : buildFood(slot,mp,mc,mf);
-      var act=parseMeal(foodVal);                 // 実際の栄養価（メニュー由来）
-      sumP+=act.p; sumF+=act.f; sumC+=act.c; sumK+=act.k;
+      var a=parseMeal(foodVal);
+      sumP+=a.p; sumF+=a.f; sumC+=a.c; sumK+=a.k;
       var tr=document.createElement('tr');
       var td0=document.createElement('td'); td0.textContent=slot;
       var td1=document.createElement('td'); td1.className='l';
       var inp=document.createElement('input'); inp.className='mealfood'; inp.value=foodVal;
       inp.dataset.slot=slot;
-      inp.addEventListener('input',function(){ mealOverrides[this.dataset.slot]=this.value; autoSaveLast(); render(); });
+      inp.addEventListener('input',function(){ mealOverrides[this.dataset.slot]=this.value; autoSaveLast(); recalcMeals(); });
       td1.appendChild(inp);
-      if(act.unknown.length){
+      if(a.unknown.length){
         var note=document.createElement('span'); note.className='foodnote';
-        note.textContent='未登録のため未計算: '+act.unknown.join('、');
+        note.textContent='未登録のため未計算: '+a.unknown.join('、');
         td1.appendChild(note);
       }
-      var td2=document.createElement('td'); td2.textContent='約'+Math.round(act.k/5)*5;
-      var td3=document.createElement('td'); td3.textContent=Math.round(act.p)+'g';
-      var td4=document.createElement('td'); td4.textContent=Math.round(act.f)+'g';
-      var td5=document.createElement('td'); td5.textContent=Math.round(act.c)+'g';
+      var td2=document.createElement('td'); td2.textContent='約'+Math.round(a.k/5)*5;
+      var td3=document.createElement('td'); td3.textContent=Math.round(a.p)+'g';
+      var td4=document.createElement('td'); td4.textContent=Math.round(a.f)+'g';
+      var td5=document.createElement('td'); td5.textContent=Math.round(a.c)+'g';
       tr.appendChild(td0);tr.appendChild(td1);tr.appendChild(td2);tr.appendChild(td3);tr.appendChild(td4);tr.appendChild(td5);
       tb.appendChild(tr);
     });
     var tr=document.createElement('tr'); tr.className='total';
-    tr.innerHTML='<td>合計</td><td class="l">（メニューの実際）</td><td>約'+Math.round(sumK/5)*5+'</td>'+
-      '<td>'+Math.round(sumP)+'g</td><td>'+Math.round(sumF)+'g</td><td>'+Math.round(sumC)+'g</td>';
     tb.appendChild(tr);
-
-    // 目標との差
-    var tK=intake>0?intake:0;
-    function diffTxt(label,actv,tgtv,unit){
-      var dv=Math.round(actv-tgtv);
-      var sign=dv>0?'+':'';
-      return label+' '+Math.round(actv)+unit+' / 目標'+Math.round(tgtv)+unit+'（'+sign+dv+unit+'）';
-    }
-    var off = Math.abs(sumK-tK) > tK*0.1; // 1日カロリーが目標±10%超でズレ表示
-    var md=$('mealDiff');
-    md.className='mealdiff '+(off?'warn':'ok');
-    md.innerHTML='<b>合計と目標の差</b>　'+
-      diffTxt('kcal',sumK,tK,'')+' ｜ '+
-      diffTxt('P',sumP,P,'g')+' ｜ '+
-      diffTxt('F',sumF,F,'g')+' ｜ '+
-      diffTxt('C',sumC,Math.max(C,0),'g')+
-      (off?'<br>※ 目標から離れています。各メニューの分量を打ち替えて合計を目標に近づけてください。':'');
+    paintTotals(sumP,sumF,sumC,sumK);
   }
 
   /* ---------- state <-> form ---------- */
@@ -682,6 +705,27 @@
     flash(snack?'間食欄を追加しました。各食事の目安が軽くなります。':'間食欄を外しました。','ok');
   };
 
+  /* ---------- 任意：全食品DBの自動読み込み ----------
+     data/food_calories_full.json（tools/build_full_db.py で生成、kcal＋P/F/C）が
+     置いてあれば自動で取り込み、認識できる食材を拡張する。
+     無ければ内蔵DB（約50品）のまま動作。file://ではfetch不可のため静かにスキップ。 */
+  function loadExternalDB(){
+    if(typeof fetch!=='function') return;
+    fetch('data/food_calories_full.json').then(function(r){ return r.ok?r.json():null; })
+      .then(function(j){
+        if(!j||!j.foods) return;
+        var added=0;
+        Object.keys(j.foods).forEach(function(name){
+          var v=j.foods[name];
+          if(v.protein_g==null||v.fat_g==null||v.carb_g==null) return; // PFCの無い項目は使わない
+          if(matchFood(name)) return;                                   // 既存と被る名前はスキップ
+          FOODS.push({n:name, a:[name], kc:v.kcal_per_100g||0, p:v.protein_g, f:v.fat_g, c:v.carb_g, sv:100});
+          added++;
+        });
+        if(added){ render(); }
+      }).catch(function(){});
+  }
+
   /* ---------- boot: restore last session ---------- */
   (function(){
     try{
@@ -692,6 +736,7 @@
   renderList();
   updateSnackBtn();
   render();
+  loadExternalDB();
 })();
 </script>
 </body>
