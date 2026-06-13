@@ -1,0 +1,59 @@
+{
+  "meta": {
+    "title": "食品カロリーデータベース（朝昼晩の健康的なメニュー）",
+    "source": "日本食品標準成分表2020年版（八訂）増補2023年 準拠",
+    "unit": "kcal / 100g（可食部あたり）",
+    "version": "1.0",
+    "note": "kcal_per_100g を参照し、(入力グラム / 100) * kcal_per_100g でカロリーを算出する。生/茹で/炊飯後など状態(state)で値が変わる点に注意。生鮮の正確値が必要な本番運用では文部科学省『食品成分データベース』の公式Excelからの自動生成を推奨。"
+  },
+  "foods": {
+    "白米ごはん":        { "kcal_per_100g": 156, "category": "主食",       "state": "炊飯後", "meal": ["朝","昼","晩"], "aliases": ["ごはん","ご飯","白ご飯","ライス","白米"] },
+    "玄米ごはん":        { "kcal_per_100g": 152, "category": "主食",       "state": "炊飯後", "meal": ["朝","昼","晩"], "aliases": ["玄米"] },
+    "食パン":            { "kcal_per_100g": 248, "category": "主食",       "state": "そのまま", "meal": ["朝"],          "aliases": ["パン","トースト"] },
+    "全粒粉パン":        { "kcal_per_100g": 251, "category": "主食",       "state": "そのまま", "meal": ["朝"],          "aliases": ["全粒粉"] },
+    "オートミール":      { "kcal_per_100g": 350, "category": "主食",       "state": "乾燥",   "meal": ["朝"],          "aliases": ["オーツ","オーツ麦"] },
+    "そば":              { "kcal_per_100g": 130, "category": "主食",       "state": "ゆで",   "meal": ["昼","晩"],      "aliases": ["蕎麦"] },
+    "うどん":            { "kcal_per_100g":  95, "category": "主食",       "state": "ゆで",   "meal": ["昼","晩"],      "aliases": [] },
+    "スパゲッティ":      { "kcal_per_100g": 150, "category": "主食",       "state": "ゆで",   "meal": ["昼","晩"],      "aliases": ["パスタ"] },
+    "さつまいも":        { "kcal_per_100g": 131, "category": "主食",       "state": "蒸し",   "meal": ["朝","昼","晩"], "aliases": ["薩摩芋","サツマイモ"] },
+    "じゃがいも":        { "kcal_per_100g":  59, "category": "主食",       "state": "生・皮なし", "meal": ["昼","晩"],  "aliases": ["ジャガイモ","馬鈴薯","ポテト"] },
+
+    "鶏むね肉(皮なし)":  { "kcal_per_100g": 105, "category": "タンパク質源", "state": "生",     "meal": ["昼","晩"],      "aliases": ["鶏胸","むね肉","胸肉"] },
+    "鶏むね肉(皮つき)":  { "kcal_per_100g": 133, "category": "タンパク質源", "state": "生",     "meal": ["昼","晩"],      "aliases": [] },
+    "鶏もも肉(皮なし)":  { "kcal_per_100g": 113, "category": "タンパク質源", "state": "生",     "meal": ["昼","晩"],      "aliases": ["もも肉"] },
+    "鶏ささみ":          { "kcal_per_100g":  98, "category": "タンパク質源", "state": "生",     "meal": ["昼","晩"],      "aliases": ["ささみ","ササミ"] },
+    "豚ロース":          { "kcal_per_100g": 248, "category": "タンパク質源", "state": "生",     "meal": ["昼","晩"],      "aliases": ["豚肉"] },
+    "豚もも(赤身)":      { "kcal_per_100g": 171, "category": "タンパク質源", "state": "生",     "meal": ["昼","晩"],      "aliases": [] },
+    "牛もも(赤身)":      { "kcal_per_100g": 176, "category": "タンパク質源", "state": "生",     "meal": ["昼","晩"],      "aliases": ["牛肉"] },
+    "鮭":                { "kcal_per_100g": 124, "category": "タンパク質源", "state": "生",     "meal": ["朝","昼","晩"], "aliases": ["サケ","しろさけ","サーモン"] },
+    "塩鮭(焼き)":        { "kcal_per_100g": 199, "category": "タンパク質源", "state": "焼き",   "meal": ["朝","昼","晩"], "aliases": ["焼き鮭","塩鮭"] },
+    "まぐろ赤身":        { "kcal_per_100g": 115, "category": "タンパク質源", "state": "生",     "meal": ["昼","晩"],      "aliases": ["マグロ","鮪","ツナ刺身"] },
+    "さば":              { "kcal_per_100g": 211, "category": "タンパク質源", "state": "生",     "meal": ["昼","晩"],      "aliases": ["サバ","鯖"] },
+    "ツナ缶(水煮)":      { "kcal_per_100g":  70, "category": "タンパク質源", "state": "水煮缶", "meal": ["昼","晩"],      "aliases": ["ツナ","シーチキン"] },
+    "卵":                { "kcal_per_100g": 142, "category": "タンパク質源", "state": "生",     "meal": ["朝","昼","晩"], "aliases": ["たまご","玉子","鶏卵"] },
+    "ゆで卵":            { "kcal_per_100g": 134, "category": "タンパク質源", "state": "ゆで",   "meal": ["朝","昼","晩"], "aliases": ["茹で卵"] },
+    "納豆":              { "kcal_per_100g": 184, "category": "タンパク質源", "state": "そのまま", "meal": ["朝","晩"],     "aliases": ["なっとう"] },
+    "木綿豆腐":          { "kcal_per_100g":  73, "category": "タンパク質源", "state": "そのまま", "meal": ["朝","昼","晩"], "aliases": ["豆腐","とうふ"] },
+    "絹ごし豆腐":        { "kcal_per_100g":  56, "category": "タンパク質源", "state": "そのまま", "meal": ["朝","昼","晩"], "aliases": ["絹豆腐"] },
+    "無糖ヨーグルト":    { "kcal_per_100g":  56, "category": "タンパク質源", "state": "そのまま", "meal": ["朝"],          "aliases": ["ヨーグルト","プレーンヨーグルト"] },
+    "牛乳":              { "kcal_per_100g":  61, "category": "タンパク質源", "state": "そのまま", "meal": ["朝"],          "aliases": ["ミルク"] },
+
+    "ブロッコリー":      { "kcal_per_100g":  30, "category": "野菜",       "state": "ゆで",   "meal": ["朝","昼","晩"], "aliases": [] },
+    "ほうれん草":        { "kcal_per_100g":  23, "category": "野菜",       "state": "ゆで",   "meal": ["朝","昼","晩"], "aliases": ["ホウレンソウ"] },
+    "キャベツ":          { "kcal_per_100g":  21, "category": "野菜",       "state": "生",     "meal": ["昼","晩"],      "aliases": [] },
+    "レタス":            { "kcal_per_100g":  11, "category": "野菜",       "state": "生",     "meal": ["朝","昼","晩"], "aliases": [] },
+    "トマト":            { "kcal_per_100g":  20, "category": "野菜",       "state": "生",     "meal": ["朝","昼","晩"], "aliases": ["とまと"] },
+    "きゅうり":          { "kcal_per_100g":  13, "category": "野菜",       "state": "生",     "meal": ["昼","晩"],      "aliases": ["胡瓜"] },
+    "にんじん":          { "kcal_per_100g":  35, "category": "野菜",       "state": "生",     "meal": ["昼","晩"],      "aliases": ["人参","ニンジン"] },
+    "アボカド":          { "kcal_per_100g": 176, "category": "野菜",       "state": "生",     "meal": ["朝","昼","晩"], "aliases": [] },
+
+    "バナナ":            { "kcal_per_100g":  93, "category": "果物",       "state": "生",     "meal": ["朝"],          "aliases": [] },
+    "りんご":            { "kcal_per_100g":  53, "category": "果物",       "state": "生",     "meal": ["朝"],          "aliases": ["リンゴ","林檎"] },
+    "ブルーベリー":      { "kcal_per_100g":  48, "category": "果物",       "state": "生",     "meal": ["朝"],          "aliases": [] },
+    "グレープフルーツ":  { "kcal_per_100g":  40, "category": "果物",       "state": "生",     "meal": ["朝"],          "aliases": [] },
+
+    "アーモンド":        { "kcal_per_100g": 609, "category": "間食・その他", "state": "乾燥",   "meal": ["朝","昼","晩"], "aliases": ["ナッツ"] },
+    "オリーブオイル":    { "kcal_per_100g": 894, "category": "調味・油脂",   "state": "そのまま", "meal": ["朝","昼","晩"], "aliases": ["オリーブ油"] },
+    "味噌":              { "kcal_per_100g": 182, "category": "調味・油脂",   "state": "そのまま", "meal": ["朝","昼","晩"], "aliases": ["みそ"] }
+  }
+}
