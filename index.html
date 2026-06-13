@@ -384,11 +384,19 @@
   ];
   var KANJI={'一':'1','二':'2','三':'3','四':'4','五':'5','六':'6','七':'7','八':'8','九':'9','十':'10','半':'0.5'};
 
+  // 数量(数字＋単位)と空白を除いた「食材名の語」を取り出す
+  function foodWord(seg){
+    return seg.replace(/\d+(?:\.\d+)?\s*(?:g|ｇ|グラム|ml|ｍｌ|ミリ|杯|膳|個|枚|本|切れ|切|丁|パック|玉|皿|鉢|カップ|袋|尾|串|房|缶)?/g,'')
+              .replace(/[\s　]/g,'');
+  }
   function matchFood(seg){
-    var best=null, bestLen=0;
+    var word=foodWord(seg), best=null, bestScore=0;
     FOODS.forEach(function(food){
       food.a.forEach(function(name){
-        if(seg.indexOf(name)>=0 && name.length>bestLen){ best=food; bestLen=name.length; }
+        var n=name.replace(/[\s　]/g,''), score=0;
+        if(seg.indexOf(name)>=0) score=n.length;                            // 入力に別名が含まれる（内蔵DB向き）
+        else if(word.length>=2 && n.indexOf(word)>=0) score=word.length-0.5; // 公式名が入力語を含む（全食品DB向き）
+        if(score>bestScore){ bestScore=score; best=food; }
       });
     });
     return best;
