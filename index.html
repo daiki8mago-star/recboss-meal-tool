@@ -42,6 +42,18 @@
     color:var(--grey); font-family:inherit;}
   .seg button.on{background:var(--navy); color:#fff; font-weight:700;}
   .hint{font-size:11px; color:var(--grey); margin-top:5px;}
+  .leadnote{font-size:12px; color:var(--grey); background:#f3f6fb; border:1px solid var(--line);
+    border-radius:8px; padding:8px 10px; margin:0 0 16px;}
+  .leadnote b{color:var(--navy);}
+
+  /* ---- 詳細設定（折りたたみ） ---- */
+  .adv{border:1px solid var(--line); border-radius:10px; background:#fbfcfd; margin-bottom:18px; padding:0 12px;}
+  .adv summary{cursor:pointer; font-size:12px; font-weight:700; color:var(--navy); padding:11px 2px;
+    list-style:none;}
+  .adv summary::-webkit-details-marker{display:none;}
+  .adv summary::before{content:"\25B8\00a0"; color:var(--accent);}
+  .adv[open] summary::before{content:"\25BE\00a0";}
+  .adv[open]{padding-bottom:12px;}
 
   .printbtn{width:100%; margin-top:4px; background:var(--accent); color:#fff; border:0;
     padding:13px; font-size:15px; font-weight:700; border-radius:10px; cursor:pointer; letter-spacing:.02em;}
@@ -137,6 +149,7 @@
     <!-- CONTROLS -->
     <div class="controls">
       <h2>クライアント情報</h2>
+      <p class="leadnote"><b>基本情報を入れるだけでOK。</b>カロリーとPFCは自動で計算・設定されます。細かく調整したいときだけ下の「詳細設定」を開いてください。</p>
       <div class="grp">
         <label>名前（保存名になります）</label>
         <input id="name" type="text" placeholder="例）山田 太郎 様" />
@@ -169,19 +182,23 @@
         <div><label>期限日</label><input id="deadline" type="date" /></div>
       </div>
 
-      <h2 style="margin-top:6px;">設計パラメータ</h2>
-      <div class="grp row">
-        <div><label>タンパク質(g/kg)</label><input id="pPerKg" type="number" step="0.1" value="2.0" /></div>
-        <div><label>脂質(g/kg)</label><input id="fPerKg" type="number" step="0.1" value="0.7" /></div>
-      </div>
       <div class="grp">
         <label>食事回数</label>
         <div class="seg" id="mealSeg">
           <button data-meals="3" class="on">3食</button>
           <button data-meals="2">2食（16:8）</button>
         </div>
-        <p class="hint">タンパク質は現体重基準。脂質は0.6g/kgを下限に。</p>
       </div>
+
+      <details class="adv">
+        <summary>詳細設定（PFCの微調整・任意）</summary>
+        <p class="hint" style="margin-top:8px;">通常はさわらなくてOK。下の数値は<b>1日あたり・現体重1kgあたり</b>のグラム数です（自動で設定済み）。</p>
+        <div class="grp row" style="margin:8px 0 0;">
+          <div><label>タンパク質（1日 g/kg）</label><input id="pPerKg" type="number" step="0.1" value="2.0" /></div>
+          <div><label>脂質（1日 g/kg）</label><input id="fPerKg" type="number" step="0.1" value="0.7" /></div>
+        </div>
+        <p class="hint">タンパク質は現体重基準。脂質は0.6g/kgが下限です。</p>
+      </details>
 
       <!-- SAVE PANEL -->
       <h2 style="margin-top:6px;">クライアント保存</h2>
@@ -216,6 +233,8 @@
           <div class="kpi"><div class="v" id="kF">–</div><div class="l">脂質</div></div>
           <div class="kpi"><div class="v" id="kC">–</div><div class="l">炭水化物</div></div>
         </div>
+
+        <p class="editnote" style="margin:-8px 0 14px;">↑ 上の4つは<b>1日の合計</b>の目安／↓ 下の表は<b>1食ごと</b>に振り分けた目安です。</p>
 
         <div class="sect" id="mealHead">3食レイアウト</div>
         <table>
