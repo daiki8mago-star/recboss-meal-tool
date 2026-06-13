@@ -124,12 +124,22 @@
   .foot{margin-top:16px; padding-top:10px; border-top:1px solid var(--line); font-size:11px; color:var(--grey);}
   .editnote{font-size:11px; color:var(--grey); margin:6px 0 0;}
 
+  .mealdiff{font-size:12.5px; margin:12px 0 4px; padding:9px 12px; border-radius:9px; border:1px solid var(--line); background:#fbfcfd; color:var(--ink);}
+  .mealdiff.ok{background:#eaf6ee; border-color:#bfe3cb; color:#16602f;}
+  .mealdiff.warn{background:#fbf4e0; border-color:#ecd9a3; color:#7a5b08;}
+  .mealdiff b{font-weight:700;}
+  .mealactions{display:flex; align-items:center; gap:14px; margin:10px 0 0; flex-wrap:wrap;}
+  .mealactions .btn{padding:8px 14px; font-size:12.5px;}
+  .mealactions a{color:var(--accent); font-size:12px; text-decoration:none;}
+  .mealactions a:hover{text-decoration:underline;}
+  .foodnote{display:block; font-size:10px; color:var(--warn); margin-top:1px; padding-left:4px;}
+
   /* ---- print ---- */
   @media print{
     @page{margin:12mm;}
     body{background:#fff;}
     .wrap{max-width:none; padding:0;}
-    .apphead,.lead,.controls,.diag,.editnote{display:none !important;}
+    .apphead,.lead,.controls,.diag,.editnote,.mealactions{display:none !important;}
     .layout{display:block;}
     .plan{border:0; border-radius:0; padding:0;}
     .mealfood{border-color:transparent !important; background:transparent !important;}
@@ -234,19 +244,23 @@
           <div class="kpi"><div class="v" id="kC">–</div><div class="l">炭水化物</div></div>
         </div>
 
-        <p class="editnote" style="margin:-8px 0 14px;">↑ 上の4つは<b>1日の合計</b>の目安／↓ 下の表は<b>1食ごと</b>に振り分けた目安です。</p>
+        <p class="editnote" style="margin:-8px 0 14px;">↑ 上の4つは<b>1日の目標</b>／↓ 下の表の数字は<b>入力したメニューの実際の量</b>です（例：ごはんを1杯→2杯にすると糖質も増えます）。</p>
 
         <div class="sect" id="mealHead">3食レイアウト</div>
         <table>
           <thead><tr>
-            <th style="width:42px;">食事</th><th class="l">メニュー（書き換え可）</th>
+            <th style="width:42px;">食事</th><th class="l">メニュー（食材＋分量で書くと自動計算）</th>
             <th style="width:58px;">kcal</th><th style="width:42px;">P</th>
             <th style="width:42px;">F</th><th style="width:42px;">C</th>
           </tr></thead>
           <tbody id="mealBody"></tbody>
         </table>
-        <p class="editnote">※ メニュー欄はタップで編集できます。編集した内容は保存時に一緒に記録されます（「新規」または数値変更で自動計算に戻したいときは下の「自動計算に戻す」）。</p>
-        <p class="editnote"><a href="#" id="resetMeals" style="color:var(--accent);">↻ メニューを自動計算に戻す</a></p>
+        <div id="mealDiff" class="mealdiff"></div>
+        <div class="mealactions">
+          <button type="button" id="btnSnack" class="btn ghost">＋ 間食を追加</button>
+          <a href="#" id="resetMeals">↻ メニューを自動で作り直す</a>
+        </div>
+        <p class="editnote">※ メニュー欄はタップで編集できます。<b>「ごはん2杯」「卵2個」「鶏むね肉150g」</b>のように<b>食材＋分量</b>で書くと、kcal・PFCが自動で計算されます。編集内容は保存時に一緒に記録されます。</p>
 
         <div class="sect">運用ルール（崩れないための鉄則）</div>
         <ul class="rules">
@@ -265,7 +279,7 @@
 
 <script>
 (function(){
-  var sex="male", meals=3;
+  var sex="male", meals=3, snack=false;
   var mealOverrides={};            // slot -> 手入力したメニュー文字列
   var STORE_KEY="recboss_meal_clients_v1";
   var LAST_KEY="recboss_meal_last_v1";
@@ -303,21 +317,110 @@
     return Math.max((dl-today)/(1000*60*60*24*7),0.1);
   }
 
-  /* ---------- food suggestion ---------- */
+  /* ---------- 食材データベース（普段の食事ベース） ----------
+     basis 'count' … 1単位あたりの P/F/C（個・杯・枚 など）
+     basis 'g'     … 100gあたりの P/F/C（serv=1人前の目安g）
+     kcal は P*4 + F*9 + C*4 で自動算出 */
+  var FOODS=[
+    {n:'ごはん', a:['ごはん','ご飯','白米','白ごはん','ライス','お米'], basis:'count', p:3.8, f:0.5, c:55.7}, // 茶碗1杯150g
+    {n:'おにぎり', a:['おにぎり','おむすび'], basis:'count', p:3.0, f:0.5, c:39},
+    {n:'食パン', a:['食パン','トースト','パン'], basis:'count', p:5.3, f:2.6, c:28},     // 6枚切1枚
+    {n:'うどん', a:['うどん'], basis:'count', p:5.6, f:0.9, c:50.6},                       // ゆで1玉
+    {n:'そば', a:['そば'], basis:'count', p:9.7, f:1.7, c:54},
+    {n:'卵', a:['卵','たまご','玉子','ゆで卵','目玉焼き'], basis:'count', p:6.2, f:5.2, c:0.2},
+    {n:'納豆', a:['納豆'], basis:'count', p:7.4, f:5.0, c:5.4},                            // 1パック
+    {n:'味噌汁', a:['味噌汁','みそ汁','みそしる'], basis:'count', p:2.0, f:1.0, c:5.0},     // 1杯
+    {n:'ヨーグルト', a:['ヨーグルト'], basis:'count', p:3.6, f:3.0, c:4.9},                 // 無糖100g
+    {n:'バナナ', a:['バナナ'], basis:'count', p:1.1, f:0.2, c:22.5},
+    {n:'りんご', a:['りんご','リンゴ'], basis:'count', p:0.2, f:0.3, c:35},
+    {n:'みかん', a:['みかん','ミカン'], basis:'count', p:0.5, f:0.1, c:9},
+    {n:'チーズ', a:['チーズ'], basis:'count', p:4.0, f:4.5, c:0.3},                        // スライス1枚
+    {n:'サラダチキン', a:['サラダチキン'], basis:'count', p:25, f:1.5, c:0.5},             // 1個
+    {n:'プロテイン', a:['プロテイン','ホエイ'], basis:'count', p:22, f:1.5, c:2.5},        // 1杯
+    {n:'牛乳', a:['牛乳','ミルク'], basis:'g', serv:200, p:3.3, f:3.8, c:4.8},             // 100ml≒100g
+    {n:'ナッツ', a:['ナッツ','アーモンド','ミックスナッツ'], basis:'g', serv:25, p:20, f:54, c:20},
+    {n:'鶏むね肉', a:['鶏むね肉','鶏むね','鶏胸','むね肉','鶏ささみ','ささみ'], basis:'g', serv:120, p:23.3, f:1.9, c:0.1},
+    {n:'鶏もも肉', a:['鶏もも肉','鶏もも','もも肉'], basis:'g', serv:120, p:19, f:5, c:0},
+    {n:'鶏肉', a:['鶏肉','とり肉','チキン'], basis:'g', serv:120, p:22, f:3, c:0},
+    {n:'豚肉', a:['豚肉','豚こま','豚ロース','豚バラ','ぶた'], basis:'g', serv:100, p:19, f:19, c:0.2},
+    {n:'牛肉', a:['牛肉','牛赤身','牛'], basis:'g', serv:100, p:21, f:10, c:0.4},
+    {n:'鮭', a:['鮭','さけ','サーモン','焼き鮭','焼鮭'], basis:'g', serv:80, p:22.3, f:4.1, c:0.1},
+    {n:'さば', a:['さば','サバ','鯖'], basis:'g', serv:80, p:20, f:16, c:0.3},
+    {n:'ぶり', a:['ぶり','ブリ'], basis:'g', serv:80, p:21, f:17, c:0.3},
+    {n:'まぐろ', a:['まぐろ','マグロ','刺身'], basis:'g', serv:80, p:26, f:1.4, c:0.1},
+    {n:'豆腐', a:['豆腐','とうふ'], basis:'g', serv:150, p:5, f:3, c:2},
+    {n:'さつまいも', a:['さつまいも','サツマイモ','さつま芋'], basis:'g', serv:100, p:1.2, f:0.2, c:31.5},
+    {n:'オートミール', a:['オートミール','オーツ'], basis:'g', serv:30, p:13.7, f:5.7, c:69},
+    {n:'ブロッコリー', a:['ブロッコリー'], basis:'g', serv:80, p:4.3, f:0.5, c:5.2},
+    {n:'野菜', a:['野菜炒め','温野菜','サラダ','野菜'], basis:'g', serv:100, p:1.5, f:0.2, c:5}
+  ];
+  var KANJI={'一':'1','二':'2','三':'3','四':'4','五':'5','六':'6','七':'7','八':'8','九':'9','十':'10','半':'0.5'};
+
+  function matchFood(seg){
+    var best=null, bestLen=0;
+    FOODS.forEach(function(food){
+      food.a.forEach(function(name){
+        if(seg.indexOf(name)>=0 && name.length>bestLen){ best=food; bestLen=name.length; }
+      });
+    });
+    return best;
+  }
+  // メニュー文字列 → 実際の栄養価（食材データベースで解析）
+  function parseMeal(text){
+    var res={k:0,p:0,f:0,c:0,unknown:[]};
+    if(!text) return res;
+    var norm=text.replace(/[一二三四五六七八九十半]/g,function(ch){return KANJI[ch];});
+    norm.split(/[＋+、，･・]/).forEach(function(seg){
+      seg=seg.trim(); if(!seg) return;
+      var food=matchFood(seg);
+      if(!food){ res.unknown.push(seg); return; }
+      var gm=seg.match(/(\d+(?:\.\d+)?)\s*(?:g|ｇ|グラム|ml|ｍｌ|ミリ)/i);
+      var cm=seg.match(/(\d+(?:\.\d+)?)\s*(?:杯|膳|個|枚|本|切れ|切|丁|パック|玉|皿|鉢|カップ|袋|尾|串|房)/);
+      var grams=gm?parseFloat(gm[1]):null;
+      var cnt=cm?parseFloat(cm[1]):null;
+      var qty;
+      if(food.basis==='g'){
+        var g = grams!=null ? grams : (food.serv*(cnt!=null?cnt:1));
+        qty=g/100;
+      }else{
+        qty = cnt!=null ? cnt : (grams!=null ? grams/150 : 1);
+      }
+      res.p+=food.p*qty; res.f+=food.f*qty; res.c+=food.c*qty;
+    });
+    res.k=res.p*4+res.f*9+res.c*4;
+    return res;
+  }
+
+  /* ---------- おすすめメニュー（家庭の食事ベースで目標に近づける） ---------- */
+  function riceBowls(carb){ return Math.min(Math.max(Math.round((carb/55.7)/0.5)*0.5,0.5),5); }
+  function meatGrams(prot, pPerG){ return Math.min(Math.max(Math.round(prot/pPerG/10)*10,50),300); }
   function buildFood(slot, mp, mc, mf){
-    var prot = slot==='夜' ? '鮭 or 赤身肉' : (slot==='昼' ? '鶏むね' : 'プロテイン＋卵');
-    var pieces=[];
-    if(slot==='朝'){
-      var scoops = Math.max(1, Math.round(mp/40));
-      var eggs = Math.max(1, Math.round((mp - scoops*22)/6));
-      var oats = round(mc*1.6, 5);
-      pieces.push('プロテイン'+scoops+'杯', '卵'+eggs+'個', 'オートミール'+oats+'g');
-    } else {
-      var meat = round(mp/0.22, 10);
-      var rice = round((mc*0.7)/0.37, 10);
-      pieces.push(prot+meat+'g', '白米'+rice+'g', '野菜・汁物');
+    if(slot==='間食'){
+      var sc=Math.max(1,Math.round(mp/22));
+      return 'プロテイン'+sc+'杯 ＋ バナナ1本';
     }
-    return pieces.join(' ＋ ');
+    if(slot==='朝'){
+      var fixedP=6.2*2 + 7.4 + 2.0;          // 卵2 + 納豆1 + 味噌汁1
+      var fixedC=0.2*2 + 5.4 + 5.0;
+      var scoops=Math.max(0,Math.round((mp-fixedP)/22));
+      var rice=riceBowls(mc-fixedC);
+      var parts=['ごはん'+rice+'杯','卵2個','納豆1パック','味噌汁1杯'];
+      if(scoops>=1) parts.push('プロテイン'+scoops+'杯');
+      return parts.join(' ＋ ');
+    }
+    // 昼・夜：主菜＋ごはん＋野菜＋味噌汁
+    var protName = slot==='夜' ? '鮭' : '鶏むね肉';
+    var pPerG    = slot==='夜' ? 0.223 : 0.233;
+    var grams=meatGrams(mp-2.0, pPerG);        // 味噌汁分を差し引き
+    var rice2=riceBowls(mc - 5.0 - 5.0);       // 味噌汁+野菜分を差し引き
+    return [protName+grams+'g','ごはん'+rice2+'杯','野菜100g','味噌汁1杯'].join(' ＋ ');
+  }
+
+  function mealSplit(){
+    if(meals===3) return snack ? [['朝',0.25],['昼',0.31],['夜',0.32],['間食',0.12]]
+                               : [['朝',0.28],['昼',0.36],['夜',0.36]];
+    return snack ? [['昼',0.40],['夜',0.48],['間食',0.12]]
+                 : [['昼',0.44],['夜',0.56]];
   }
 
   /* ---------- main render ---------- */
@@ -364,40 +467,61 @@
     $('kF').textContent = 'F '+Math.round(F)+'g';
     $('kC').textContent = 'C '+Math.max(Math.round(C),0)+'g';
 
-    $('mealHead').textContent = meals===3 ? '3食レイアウト' : '2食レイアウト（16:8 ／ 昼＋夜）';
-    var split = meals===3 ? [['朝',0.28],['昼',0.36],['夜',0.36]]
-                          : [['昼',0.44],['夜',0.56]];
+    $('mealHead').textContent = (meals===3 ? '3食レイアウト' : '2食レイアウト（16:8 ／ 昼＋夜）') + (snack?'＋間食':'');
+    var split=mealSplit();
     var tb=$('mealBody'); tb.innerHTML='';
     var sumP=0,sumF=0,sumC=0,sumK=0;
     split.forEach(function(s){
       var slot=s[0], r=s[1];
       var mp=P*r, mf=F*r, mc=Math.max(C*r,0);
-      var mk=mp*4+mf*9+mc*4;
-      sumP+=mp; sumF+=mf; sumC+=mc; sumK+=mk;
       var foodVal = (mealOverrides[slot]!=null) ? mealOverrides[slot] : buildFood(slot,mp,mc,mf);
+      var act=parseMeal(foodVal);                 // 実際の栄養価（メニュー由来）
+      sumP+=act.p; sumF+=act.f; sumC+=act.c; sumK+=act.k;
       var tr=document.createElement('tr');
       var td0=document.createElement('td'); td0.textContent=slot;
       var td1=document.createElement('td'); td1.className='l';
       var inp=document.createElement('input'); inp.className='mealfood'; inp.value=foodVal;
       inp.dataset.slot=slot;
-      inp.addEventListener('input',function(){ mealOverrides[this.dataset.slot]=this.value; autoSaveLast(); });
+      inp.addEventListener('input',function(){ mealOverrides[this.dataset.slot]=this.value; autoSaveLast(); render(); });
       td1.appendChild(inp);
-      var td2=document.createElement('td'); td2.textContent='約'+Math.round(mk/5)*5;
-      var td3=document.createElement('td'); td3.textContent=Math.round(mp)+'g';
-      var td4=document.createElement('td'); td4.textContent=Math.round(mf)+'g';
-      var td5=document.createElement('td'); td5.textContent=Math.round(mc)+'g';
+      if(act.unknown.length){
+        var note=document.createElement('span'); note.className='foodnote';
+        note.textContent='未登録のため未計算: '+act.unknown.join('、');
+        td1.appendChild(note);
+      }
+      var td2=document.createElement('td'); td2.textContent='約'+Math.round(act.k/5)*5;
+      var td3=document.createElement('td'); td3.textContent=Math.round(act.p)+'g';
+      var td4=document.createElement('td'); td4.textContent=Math.round(act.f)+'g';
+      var td5=document.createElement('td'); td5.textContent=Math.round(act.c)+'g';
       tr.appendChild(td0);tr.appendChild(td1);tr.appendChild(td2);tr.appendChild(td3);tr.appendChild(td4);tr.appendChild(td5);
       tb.appendChild(tr);
     });
     var tr=document.createElement('tr'); tr.className='total';
-    tr.innerHTML='<td>合計</td><td class="l"></td><td>約'+Math.round(sumK/5)*5+'</td>'+
+    tr.innerHTML='<td>合計</td><td class="l">（メニューの実際）</td><td>約'+Math.round(sumK/5)*5+'</td>'+
       '<td>'+Math.round(sumP)+'g</td><td>'+Math.round(sumF)+'g</td><td>'+Math.round(sumC)+'g</td>';
     tb.appendChild(tr);
+
+    // 目標との差
+    var tK=intake>0?intake:0;
+    function diffTxt(label,actv,tgtv,unit){
+      var dv=Math.round(actv-tgtv);
+      var sign=dv>0?'+':'';
+      return label+' '+Math.round(actv)+unit+' / 目標'+Math.round(tgtv)+unit+'（'+sign+dv+unit+'）';
+    }
+    var off = Math.abs(sumK-tK) > tK*0.1; // 1日カロリーが目標±10%超でズレ表示
+    var md=$('mealDiff');
+    md.className='mealdiff '+(off?'warn':'ok');
+    md.innerHTML='<b>合計と目標の差</b>　'+
+      diffTxt('kcal',sumK,tK,'')+' ｜ '+
+      diffTxt('P',sumP,P,'g')+' ｜ '+
+      diffTxt('F',sumF,F,'g')+' ｜ '+
+      diffTxt('C',sumC,Math.max(C,0),'g')+
+      (off?'<br>※ 目標から離れています。各メニューの分量を打ち替えて合計を目標に近づけてください。':'');
   }
 
   /* ---------- state <-> form ---------- */
   function getState(){
-    var o={sex:sex, meals:meals, mealOverrides:Object.assign({},mealOverrides)};
+    var o={sex:sex, meals:meals, snack:snack, mealOverrides:Object.assign({},mealOverrides)};
     FIELDS.forEach(function(id){ o[id]=$(id).value; });
     return o;
   }
@@ -406,12 +530,19 @@
     FIELDS.forEach(function(id){ if(o[id]!=null) $(id).value=o[id]; });
     sex = o.sex || 'male';
     meals = o.meals || 3;
+    snack = !!o.snack;
     mealOverrides = o.mealOverrides ? Object.assign({},o.mealOverrides) : {};
     document.querySelectorAll('#sexSeg button').forEach(function(x){
       x.classList.toggle('on', x.dataset.sex===sex); });
     document.querySelectorAll('#mealSeg button').forEach(function(x){
       x.classList.toggle('on', parseInt(x.dataset.meals)===meals); });
+    updateSnackBtn();
     render();
+  }
+  function updateSnackBtn(){
+    var b=$('btnSnack'); if(!b) return;
+    b.textContent = snack ? '− 間食を外す' : '＋ 間食を追加';
+    b.classList.toggle('primary', snack); b.classList.toggle('ghost', !snack);
   }
 
   /* ---------- storage ---------- */
@@ -479,9 +610,10 @@
     $('cur').value='63.5'; $('tgt').value='58';
     var d=new Date(); d.setDate(d.getDate()+49); $('deadline').value=d.toISOString().slice(0,10);
     $('pPerKg').value='2.0'; $('fPerKg').value='0.7';
-    sex='male'; meals=3; mealOverrides={};
+    sex='male'; meals=3; snack=false; mealOverrides={};
     document.querySelectorAll('#sexSeg button').forEach(function(x){ x.classList.toggle('on', x.dataset.sex==='male'); });
     document.querySelectorAll('#mealSeg button').forEach(function(x){ x.classList.toggle('on', x.dataset.meals==='3'); });
+    updateSnackBtn();
     autoSaveLast(); render(); flash('新規作成しました。','ok'); $('name').focus();
   }
 
@@ -516,7 +648,13 @@
   $('btnExport').onclick=exportBackup;
   $('btnImport').onclick=function(){ $('importFile').click(); };
   $('importFile').onchange=function(){ if(this.files[0]) importBackup(this.files[0]); this.value=''; };
-  $('resetMeals').onclick=function(e){ e.preventDefault(); mealOverrides={}; autoSaveLast(); render(); flash('メニューを自動計算に戻しました。','ok'); };
+  $('resetMeals').onclick=function(e){ e.preventDefault(); mealOverrides={}; autoSaveLast(); render(); flash('おすすめメニューを作り直しました。','ok'); };
+  $('btnSnack').onclick=function(){
+    snack=!snack;
+    if(!snack) delete mealOverrides['間食'];
+    updateSnackBtn(); autoSaveLast(); render();
+    flash(snack?'間食欄を追加しました。各食事の目安が軽くなります。':'間食欄を外しました。','ok');
+  };
 
   /* ---------- boot: restore last session ---------- */
   (function(){
@@ -526,6 +664,7 @@
     }catch(e){}
   })();
   renderList();
+  updateSnackBtn();
   render();
 })();
 </script>
